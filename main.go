@@ -15,18 +15,68 @@ import (
 	"time"
 )
 
-func openSmbdir(client *libsmbclient.Client, duri string) {
-	dh, err := client.Opendir(duri)
+func getStat(client *libsmbclient.Client, uri string) {
+	st, err := client.Stat(uri)
 	if err != nil {
-		log.Print(err)
-		return
+		log.Println("Response:", err.Error())
+	} else {
+		log.Println("Stat response:", st)
 	}
+}
+
+func openSmbdir(client *libsmbclient.Client, duri string) {
+	dh, _ := client.Opendir(duri)
+	/*if err != nil {
+		log.Print("open dir failed:", err)
+		return
+	}*/
+	var getTypeString= func(t libsmbclient.SmbcType) string{
+
+		/*SMBC_WORKGROUP     SmbcType = C.SMBC_WORKGROUP
+		SMBC_FILE_SHARE             = C.SMBC_FILE_SHARE
+		SMBC_PRINTER_SHARE          = C.SMBC_PRINTER_SHARE
+		SMBC_COMMS_SHARE            = C.SMBC_COMMS_SHARE
+		SMBC_IPC_SHARE              = C.SMBC_IPC_SHARE
+		SMBC_DIR                    = C.SMBC_DIR
+		SMBC_FILE                   = C.SMBC_FILE
+		SMBC_LINK                   = C.SMBC_LINK*/
+
+		switch t{
+		case libsmbclient.SMBC_FILE:
+			return "file"
+		case libsmbclient.SMBC_DIR:
+			return "directory"
+		case libsmbclient.SMBC_LINK:
+			return "link"
+		default:
+			return "unknown"
+		}
+	}
+
+	log.Printf("%15s\t%15s\t%15s\t%15s\t%s",
+
+		"Type",
+		"a time",
+		"e time",
+		"size",
+		"Name",
+	)
 	for {
 		dirent, err := dh.Readdir()
 		if err != nil {
 			break
 		}
-		fmt.Println(dirent)
+		furi := duri + "/" + dirent.Name
+		st, _ := client.Stat(furi)
+		if st != nil {
+			log.Printf("%15s\t%15d\t%15d\t%15d\t%s",
+				getTypeString(dirent.Type),
+				st.Access,
+				st.Edit,
+				st.Size,
+				dirent.Name,
+			)
+		}
 	}
 	dh.Closedir()
 }
@@ -108,8 +158,9 @@ func multiThreadStressTest(client *libsmbclient.Client, uri string) {
 }
 
 func main() {
-	var duri, furi, suri string
+	var duri, furi, suri, staturl string
 	var withAuth bool
+	flag.StringVar(&staturl, "stat", "", "smb://path/to/file style")
 	flag.StringVar(&duri, "show-dir", "", "smb://path/to/dir style directory")
 	flag.StringVar(&furi, "show-file", "", "smb://path/to/file style file")
 	flag.BoolVar(&withAuth, "with-auth", false, "ask for auth")
@@ -134,6 +185,9 @@ func main() {
 	} else if suri != "" {
 		fn = multiThreadStressTest
 		uri = suri
+	} else if staturl != "" {
+		fn = getStat
+		uri = staturl
 	} else {
 		flag.Usage()
 		return

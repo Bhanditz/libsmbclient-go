@@ -37,6 +37,10 @@ void my_smbc_close(SMBCCTX *c, SMBCFILE *f) {
   fn(c, f);
 }
 
+int my_smbc_stat(SMBCCTX *c, const char *url, struct stat *st) {
+    smbc_stat_fn fn = smbc_getFunctionStat(c);
+    return fn(c, url, st);
+}
 
 // the auth callback releated stuff, its a bit complicated 
 extern void 
@@ -44,6 +48,7 @@ GoAuthCallbackHelper(void *ctx, char *server_name, char *domain_name,
                      char *domain_out, int domainmaxlen, 
                      char *username_out, int unmaxlen, 
                      char *password_out, int pwmaxlen);
+
 void my_smbc_auth_callback(SMBCCTX *ctx,
 	       const char *server_name, const char *share_name,
 	       char *domain_out, int domainmaxlen,
